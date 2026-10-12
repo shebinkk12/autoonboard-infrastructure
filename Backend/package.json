@@ -1,0 +1,11 @@
+{
+  "name": "autoonboard-backend",
+  "version": "1.0.0",
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "@azure/identity": "^4.0.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "isomorphic-fetch": "^3.0.0",
+    "mssql": "^12.7.3"
+  }
+}
