@@ -1,465 +1,305 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoOnboard - Azure Enterprise Portal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #0078d4;
-            --primary-hover: #005a9e;
-            --bg-body: #f4f6f9;
-            --card-bg: #ffffff;
-            --text-main: #1f2937;
-            --text-muted: #6b7280;
-            --border-color: #e5e7eb;
-            --success-bg: #ecfdf5;
-            --success-text: #059669;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-            --radius-lg: 16px;
-            --radius-md: 10px;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px 16px;
-        }
-
-        .dashboard-card {
-            background: var(--card-bg);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
-            border: 1px solid var(--border-color);
-            max-width: 960px;
-            width: 100%;
-            overflow: hidden;
-        }
-
-        .header {
-            padding: 32px 32px 24px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .brand-section {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .brand-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #0078d4, #003e73);
-            color: white;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.4rem;
-            font-weight: 700;
-            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.25);
-        }
-
-        .header-title h1 {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--text-main);
-            letter-spacing: -0.02em;
-        }
-
-        .header-title p {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--success-bg);
-            color: var(--success-text);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            border: 1px solid rgba(5, 150, 105, 0.15);
-        }
-
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--success-text);
-            border-radius: 50%;
-            box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
-            70% { box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
-        }
-
-        .main-layout {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            min-height: 480px;
-        }
-
-        @media (max-width: 768px) {
-            .main-layout { grid-template-columns: 1fr; }
-        }
-
-        .form-pane {
-            padding: 32px;
-            border-right: 1px solid var(--border-color);
-        }
-
-        .feed-pane {
-            padding: 32px;
-            background-color: #fafbfc;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .pane-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .counter-pill {
-            background: #eef2ff;
-            color: #4f46e5;
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 11px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            font-size: 0.9rem;
-            font-family: inherit;
-            color: var(--text-main);
-            background-color: white;
-            transition: all 0.2s ease;
-            outline: none;
-        }
-
-        .form-control:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
-        }
-
-        .btn-submit {
-            width: 100%;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px 18px;
-            border-radius: var(--radius-md);
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .btn-submit:hover {
-            background-color: var(--primary-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.2);
-        }
-
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        .user-feed {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            overflow-y: auto;
-            max-height: 380px;
-            padding-right: 4px;
-        }
-
-        .user-card {
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 14px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s ease;
-            animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .user-card:hover {
-            border-color: #cbd5e1;
-            transform: translateX(2px);
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            color: white;
-            font-weight: 700;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            text-transform: uppercase;
-        }
-
-        .user-details {
-            overflow: hidden;
-        }
-
-        .user-name {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-main);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .user-meta {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Custom Scrollbar for Recent List */
-        .user-feed::-webkit-scrollbar { width: 4px; }
-        .user-feed::-webkit-scrollbar-track { background: transparent; }
-        .user-feed::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoOnboard Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+:root{--ink:#17142b;--muted:#625f78;--line:#e7e4f1;--accent:#1D4ED8;--soft:color-mix(in srgb,var(--accent) 10%,#fff);--mid:color-mix(in srgb,var(--accent) 26%,#fff)}
+body{font:16px/1.5 'DM Sans',system-ui,sans-serif;color:var(--ink);min-height:100vh;padding:28px 16px 56px;background:radial-gradient(60rem 28rem at 8% -5%,var(--mid),transparent 60%),radial-gradient(48rem 24rem at 100% 0,#ffe1f0,transparent 55%),#fbfaff}
+h1,h2,h3{font-family:'Bricolage Grotesque','DM Sans',sans-serif;letter-spacing:-.02em}
+.wrap{max-width:1080px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+.brand{display:flex;gap:14px;align-items:center}
+.mark{width:52px;height:52px;border-radius:16px;background:var(--accent);color:#fff;display:grid;place-items:center;font:800 1.6rem 'Bricolage Grotesque',sans-serif;box-shadow:0 8px 20px -6px var(--accent);transition:background .25s}
+.brand h1{font-size:1.9rem;line-height:1.1}
+.brand p{color:var(--muted);font-size:.95rem;max-width:34rem}
+.status{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;background:#fff;border:1px solid var(--line);font-size:.85rem;font-weight:500}
+.status i{width:9px;height:9px;border-radius:50%;background:#f59e0b}
+.status.ok i{background:#10b981;box-shadow:0 0 0 0 #10b98166;animation:pulse 2s infinite}
+.status.bad i{background:#ef4444}
+@keyframes pulse{70%{box-shadow:0 0 0 8px #10b98100}100%{box-shadow:0 0 0 0 #10b98100}}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 18px 40px -26px rgba(40,30,90,.35)}
+.card h2{font-size:1.35rem;margin-bottom:18px}
+fieldset{border:0;padding:0;min-width:0}
+fieldset:disabled{opacity:.55}
+.field{margin-bottom:18px}
+.field label,.lbl{display:block;font-weight:700;font-size:.9rem;margin-bottom:7px}
+input[type=text],input[type=email],input[type=search]{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font:inherit;color:var(--ink);background:#fff;transition:border-color .2s,box-shadow .2s}
+input:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--soft)}
+small{display:block;min-height:1.2em;margin-top:5px;font-size:.82rem;color:var(--muted)}
+small.err{color:#b91c1c}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{position:relative;display:flex;gap:10px;align-items:center;padding:11px 12px;border:1.5px solid var(--line);border-radius:14px;cursor:pointer;background:#fff;font-size:.9rem;font-weight:500;line-height:1.25;transition:transform .15s,border-color .15s,background .15s}
+.tile:hover{transform:translateY(-2px);border-color:var(--c)}
+.tile input{position:absolute;opacity:0}
+.tile .ico{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 14%,#fff);font-size:1.1rem}
+.tile:has(input:checked){border-color:var(--c);background:color-mix(in srgb,var(--c) 9%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,#fff)}
+.tile:has(input:checked) .ico{background:var(--c)}
+.tile:has(input:focus-visible){outline:2px solid var(--c);outline-offset:2px}
+.go{width:100%;margin-top:6px;padding:14px;border:0;border-radius:14px;background:var(--accent);color:#fff;font:700 1rem 'DM Sans',sans-serif;cursor:pointer;box-shadow:0 12px 22px -12px var(--accent);transition:transform .15s,background .25s,opacity .2s}
+.go:hover:not(:disabled){transform:translateY(-2px)}
+.go:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.go:focus-visible,.ghost:focus-visible,.chip:focus-visible{outline:3px solid var(--mid);outline-offset:2px}
+.steps{list-style:none;padding:0;margin-top:20px;display:grid;gap:10px}
+.steps li{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:.95rem}
+.steps li i{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:.7rem;font-style:normal;color:#fff;transition:all .3s}
+.steps li.run{color:var(--ink);font-weight:700}
+.steps li.run i{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
+.steps li.ok{color:var(--ink)}
+.steps li.ok i{background:var(--accent);border-color:var(--accent)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.done{text-align:center;padding:10px 0}
+.done .big{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:2rem;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+.done.warn .big{background:#d97706}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+.done h2{margin-bottom:6px}
+.done p{color:var(--muted);margin:6px auto;max-width:26rem}
+.upn{display:inline-flex;gap:10px;align-items:center;margin:12px 0;padding:8px 8px 8px 14px;border-radius:12px;background:var(--soft);font-weight:700;word-break:break-all;text-align:left}
+.ghost{border:1.5px solid var(--accent);background:#fff;color:var(--accent);font:700 .85rem 'DM Sans',sans-serif;border-radius:9px;padding:7px 12px;cursor:pointer}
+.ghost:hover{background:var(--soft)}
+pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;font:.85rem/1.5 'DM Sans',sans-serif;margin:12px 0}
+.badge{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;margin-bottom:22px;box-shadow:0 18px 40px -26px rgba(40,30,90,.35)}
+.bhead{height:84px;background:linear-gradient(120deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#ec4899));transition:background .3s}
+.bbody{padding:0 24px 22px;margin-top:-38px}
+.av{width:76px;height:76px;border-radius:50%;background:#fff;border:4px solid #fff;color:var(--accent);display:grid;place-items:center;font:800 1.7rem 'Bricolage Grotesque',sans-serif;box-shadow:0 8px 18px -8px rgba(0,0,0,.4);outline:3px solid var(--accent);transition:transform .25s}
+.av.bump{transform:scale(1.1)}
+.badge h3{font-size:1.35rem;margin-top:12px;word-break:break-word}
+.pill{display:inline-block;margin-top:6px;padding:3px 11px;border-radius:99px;background:var(--soft);color:var(--accent);font-weight:700;font-size:.82rem}
+.badge .em{margin-top:8px;color:var(--muted);font-size:.9rem;word-break:break-all}
+.acc{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:.88rem}
+.rtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.rtop h2{margin:0}
+.count{background:var(--soft);color:var(--accent);padding:3px 11px;border-radius:99px;font-weight:700;font-size:.8rem}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}
+.chip{display:inline-flex;gap:6px;align-items:center;padding:5px 11px;border:1.5px solid var(--line);border-radius:99px;background:#fff;font:500 .82rem 'DM Sans',sans-serif;cursor:pointer}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--c,#6b7280)}
+.chip[aria-pressed=true]{background:var(--c,#17142b);border-color:var(--c,#17142b);color:#fff}
+.chip[aria-pressed=true] i{background:#fff}
+.list{display:grid;gap:10px;max-height:340px;overflow:auto;margin-top:12px;padding-right:4px}
+.row{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:14px;border:1px solid var(--line);border-left:5px solid var(--c);background:#fff}
+.row.new{animation:flash 1.6s ease-out}
+@keyframes flash{from{background:color-mix(in srgb,var(--c) 22%,#fff)}}
+.row .a{flex:none;width:40px;height:40px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem}
+.row b{display:block;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row span{display:block;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row div{min-width:0}
+.empty{color:var(--muted);text-align:center;padding:18px 0;font-size:.92rem}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#7f1d1d;color:#fff;padding:12px 18px;border-radius:12px;max-width:90vw;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);z-index:20}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:30}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
 </head>
 <body>
-
-    <div class="dashboard-card">
-        <!-- Top Header -->
-        <div class="header">
-            <div class="brand-section">
-                <div class="brand-icon">A</div>
-                <div class="header-title">
-                    <h1>AutoOnboard Portal</h1>
-                    <p>Automated Provisioning & Role Delegation System</p>
-                </div>
-            </div>
-            <div class="status-badge">
-                <span class="pulse-dot"></span>
-                Azure SQL & App Service Online
-            </div>
-        </div>
-
-        <!-- Main Body Grid -->
-        <div class="main-layout">
-            <!-- Left Pane: Input Form -->
-            <div class="form-pane">
-                <div class="pane-title">Submit Onboarding Details</div>
-                <form id="onboardForm">
-                    <div class="form-group">
-                        <label for="empName">Classmate / Employee Name</label>
-                        <input type="text" id="empName" class="form-control" placeholder="e.g., Sidharth V" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="empEmail">Gmail / Email Address</label>
-                        <input type="email" id="empEmail" class="form-control" placeholder="e.g., sidharthv@gmail.com" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="empDept">Department</label>
-                        <select id="empDept" class="form-control" required>
-                            <option value="DevOps & Cloud Architecture">DevOps & Cloud Architecture</option>
-                            <option value="Engineering">Engineering</option>
-                            <option value="Human Resources">Human Resources</option>
-                            <option value="Finance">Finance</option>
-                            <option value="Marketing">Marketing</option>
-                            <option value="Operations">Operations</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn-submit" id="submitBtn">
-                        <span id="btnText">Submit Onboarding Request</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Right Pane: Live Feed -->
-            <div class="feed-pane">
-                <div class="pane-title">
-                    Recent Onboarded Classmates
-                    <span class="counter-pill" id="liveCount">3 active</span>
-                </div>
-                
-                <div class="user-feed" id="recentList">
-                    <div class="user-card">
-                        <div class="avatar" style="background: #0078d4;">RS</div>
-                        <div class="user-details">
-                            <div class="user-name">Rahul Sharma</div>
-                            <div class="user-meta">Engineering • rahul.s@gmail.com</div>
-                        </div>
-                    </div>
-
-                    <div class="user-card">
-                        <div class="avatar" style="background: #107c41;">AP</div>
-                        <div class="user-details">
-                            <div class="user-name">Ananya Patel</div>
-                            <div class="user-meta">DevOps • ananya.p@gmail.com</div>
-                        </div>
-                    </div>
-
-                    <div class="user-card">
-                        <div class="avatar" style="background: #8764b8;">PN</div>
-                        <div class="user-details">
-                            <div class="user-name">Priya Nair</div>
-                            <div class="user-meta">Human Resources • priya.n@gmail.com</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<canvas id="fx"></canvas>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="mark">A</span>
+      <div>
+        <h1>AutoOnboard</h1>
+        <p>Add a new person and Azure sets up their account, department access and welcome email.</p>
+      </div>
     </div>
+    <span class="status" id="status"><i></i><b>Checking server…</b></span>
+  </header>
 
-    <script>
-        const avatarColors = ['#0078d4', '#107c41', '#8764b8', '#d13438', '#008272', '#a4262c'];
-        let currentCount = 3;
+  <div class="grid">
+    <section class="card" id="formCard">
+      <form id="onboardForm" novalidate>
+        <fieldset id="fs">
+          <h2>Who is joining?</h2>
+          <div class="field">
+            <label for="empName">Full name</label>
+            <input type="text" id="empName" placeholder="e.g. Sidharth V" autocomplete="off" required>
+          </div>
+          <div class="field">
+            <label for="empEmail">Personal email</label>
+            <input type="email" id="empEmail" placeholder="e.g. sidharthv@gmail.com" autocomplete="off" required>
+            <small id="emailHint"></small>
+          </div>
+          <div class="field">
+            <span class="lbl" id="deptLbl">Department</span>
+            <div class="tiles" id="tiles" role="radiogroup" aria-labelledby="deptLbl"></div>
+          </div>
+          <button type="submit" class="go" id="submitBtn" disabled><span id="btnText">Onboard this person</span></button>
+        </fieldset>
+        <ol class="steps" id="steps" hidden>
+          <li><i></i>Saving to the database</li>
+          <li><i></i>Creating the Entra ID account</li>
+          <li><i></i>Sending the welcome email</li>
+          <li><i></i>Preparing orientation files</li>
+        </ol>
+      </form>
+      <div class="done" id="done" hidden></div>
+    </section>
 
-        document.getElementById('onboardForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const btn = document.getElementById('submitBtn');
-            const btnText = document.getElementById('btnText');
-            
-            btn.disabled = true;
-            btnText.innerText = "Processing in Azure...";
-            btn.style.opacity = "0.75";
+    <aside>
+      <div class="badge" aria-live="polite">
+        <div class="bhead"></div>
+        <div class="bbody">
+          <div class="av" id="pvAv">?</div>
+          <h3 id="pvName">New teammate</h3>
+          <span class="pill" id="pvDept"></span>
+          <p class="em" id="pvEmail">Email appears here</p>
+          <p class="acc" id="pvAcc"></p>
+        </div>
+      </div>
+      <section class="card">
+        <div class="rtop"><h2>Recently onboarded</h2><span class="count" id="count">0</span></div>
+        <input type="search" id="search" placeholder="Search by name or email" aria-label="Search onboarded people">
+        <div class="chips" id="chips"></div>
+        <div class="list" id="list"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden role="alert"></div>
 
-            const name = document.getElementById('empName').value.trim();
-            const email = document.getElementById('empEmail').value.trim();
-            const department = document.getElementById('empDept').value;
+<script>
+const DEPTS = [
+  {n:'DevOps & Cloud Architecture', s:'DevOps',      c:'#1D4ED8', i:'☁️', a:'Can manage resources in rg-autoonboard'},
+  {n:'Engineering',                 s:'Engineering', c:'#6D28D9', i:'🛠️', a:'Can view resources and deploy the web app'},
+  {n:'Human Resources',             s:'HR',          c:'#BE185D', i:'🤝', a:'Can view the app and read orientation files'},
+  {n:'Finance',                     s:'Finance',     c:'#047857', i:'💰', a:'Can view costs and billing'},
+  {n:'Marketing',                   s:'Marketing',   c:'#C2410C', i:'📣', a:'Can view the subscription, read only'},
+  {n:'Operations',                  s:'Operations',  c:'#0E7490', i:'📡', a:'Can monitor resources and manage alerts'}
+];
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const initials = n => { const p = String(n).trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length-1][0] : '')).toUpperCase() : '?'; };
+const deptOf = name => DEPTS.find(d => d.n === name || d.s === name) || {n:name || 'Unassigned', s:name || 'Unassigned', c:'#6b7280', i:'👤', a:''};
+const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 
-            try {
-                const response = await fetch('https://func-autoonboard-2026.azurewebsites.net/api/ProcessOnboarding', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, department })
-                });
+let cur = 0, people = [], filter = 'All', newEmail = null;
 
-                const result = await response.json();
+/* ---------- department tiles + theme ---------- */
+DEPTS.forEach((d, i) => {
+  const l = document.createElement('label');
+  l.className = 'tile'; l.style.setProperty('--c', d.c);
+  l.innerHTML = '<input type="radio" name="dept" value="' + i + '"' + (i === 0 ? ' checked' : '') + '><span class="ico">' + d.i + '</span><span>' + esc(d.n) + '</span>';
+  l.querySelector('input').addEventListener('change', () => setDept(i));
+  $('tiles').appendChild(l);
+});
+function setDept(i) {
+  cur = i;
+  document.documentElement.style.setProperty('--accent', DEPTS[i].c);
+  updatePreview();
+}
 
-                if (response.ok) {
-                    addRecentUserToList(name, email, department);
-                    document.getElementById('onboardForm').reset();
-                } else {
-                    alert("Error processing request: " + (result.message || "Unknown error"));
-                }
-            } catch (error) {
-                alert("Failed to reach Azure Backend API. Check network/CORS settings.");
-            } finally {
-                btn.disabled = false;
-                btnText.innerText = "Submit Onboarding Request";
-                btn.style.opacity = "1";
-            }
-        });
+/* ---------- live preview + validation ---------- */
+function updatePreview() {
+  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = DEPTS[cur];
+  $('pvAv').textContent = initials(name);
+  $('pvAv').classList.add('bump'); setTimeout(() => $('pvAv').classList.remove('bump'), 160);
+  $('pvName').textContent = name || 'New teammate';
+  $('pvDept').textContent = d.n;
+  $('pvEmail').textContent = email || 'Email appears here';
+  $('pvAcc').textContent = 'Azure access: ' + d.a.replace(/^Can /, 'can ');
+  const first = name.split(/\s+/)[0];
+  $('btnText').textContent = first ? 'Onboard ' + first : 'Onboard this person';
+  const hint = $('emailHint');
+  if (email && !emailOk(email)) { hint.textContent = 'Enter a full email address, for example name@gmail.com.'; hint.className = 'err'; }
+  else { hint.textContent = email ? 'The welcome email will be sent here.' : ''; hint.className = ''; }
+  $('submitBtn').disabled = !(name.length > 1 && emailOk(email));
+}
+$('empName').addEventListener('input', updatePreview);
+$('empEmail').addEventListener('input', updatePreview);
 
-        function addRecentUserToList(name, email, department) {
-            const listContainer = document.getElementById('recentList');
-            if (!listContainer) return;
+/* ---------- submit with live progress ---------- */
+const stepEls = () => [...document.querySelectorAll('#steps li')];
+function mark(k) { stepEls().forEach((li, j) => li.className = j < k ? 'ok' : j === k ? 'run' : ''); stepEls().forEach((li, j) => li.firstChild.textContent = j < k ? '✓' : ''); }
 
-            // Generate Initials
-            const nameParts = name.split(' ').filter(p => p.length > 0);
-            let initials = nameParts[0][0].toUpperCase();
-            if (nameParts.length > 1) {
-                initials += nameParts[nameParts.length - 1][0].toUpperCase();
-            }
+$('onboardForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = DEPTS[cur];
+  $('fs').disabled = true; $('steps').hidden = false;
+  let k = 0; mark(0);
+  const timer = setInterval(() => { if (k < 3) mark(++k); }, 1000);
+  try {
+    const r = await fetch('/api/onboard', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, email, department: d.n})});
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || data.message || 'The server returned ' + r.status + '.');
+    clearInterval(timer); mark(4);
+    setTimeout(() => showDone(name, email, d, data), 450);
+    people.unshift({Name:name, Email:email, Department:d.n}); newEmail = email; renderRecent();
+  } catch (err) {
+    clearInterval(timer);
+    $('steps').hidden = true; $('fs').disabled = false;
+    toast(err.message || 'Could not reach the server. Check your connection and try again.');
+  }
+});
 
-            const color = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+function showDone(name, email, d, data) {
+  const ok = !!data.upn, box = $('done');
+  box.className = 'done' + (ok ? '' : ' warn');
+  box.innerHTML = ok
+    ? '<div class="big">✓</div><h2>' + esc(name) + ' is onboarded</h2><p>Their Entra ID account is ready and added to the ' + esc(d.n) + ' group.</p>' +
+      '<div class="upn"><span id="upnTxt">' + esc(data.upn) + '</span><button type="button" class="ghost" id="copyBtn">Copy</button></div>' +
+      '<p>Their temporary password was emailed to ' + esc(email) + '.</p>'
+    : '<div class="big">!</div><h2>Saved, with a problem</h2><p>' + esc(name) + ' is in the database, but one step needs attention.</p><pre>' + esc(data.message || '') + '</pre>';
+  box.innerHTML += '<button type="button" class="go" id="againBtn" style="max-width:260px">Onboard another person</button>';
+  $('onboardForm').hidden = true; box.hidden = false;
+  $('againBtn').onclick = reset;
+  if ($('copyBtn')) $('copyBtn').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('upnTxt').textContent); $('copyBtn').textContent = 'Copied'; };
+  if (ok) confetti(d.c);
+}
+function reset() {
+  $('done').hidden = true; $('onboardForm').hidden = false; $('steps').hidden = true;
+  $('fs').disabled = false; $('empName').value = ''; $('empEmail').value = '';
+  updatePreview(); $('empName').focus();
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => t.hidden = true, 6000); }
 
-            const newCard = document.createElement('div');
-            newCard.className = 'user-card';
-            newCard.innerHTML = `
-                <div class="avatar" style="background: ${color};">${initials}</div>
-                <div class="user-details">
-                    <div class="user-name">${escapeHtml(name)}</div>
-                    <div class="user-meta">${escapeHtml(department)} • ${escapeHtml(email)}</div>
-                </div>
-            `;
+/* ---------- recent list with search and department filters ---------- */
+async function load() {
+  try { const r = await fetch('/api/classmates'); if (!r.ok) throw 0; people = await r.json(); } catch (e) { people = []; }
+  renderRecent();
+}
+function renderRecent() {
+  const q = $('search').value.trim().toLowerCase();
+  const counts = {}; people.forEach(p => counts[deptOf(p.Department).s] = (counts[deptOf(p.Department).s] || 0) + 1);
+  $('count').textContent = people.length + (people.length === 1 ? ' person' : ' people');
+  $('chips').innerHTML = '<button type="button" class="chip" data-f="All" aria-pressed="' + (filter === 'All') + '">All ' + people.length + '</button>' +
+    DEPTS.filter(d => counts[d.s]).map(d => '<button type="button" class="chip" style="--c:' + d.c + '" data-f="' + esc(d.s) + '" aria-pressed="' + (filter === d.s) + '"><i></i>' + esc(d.s) + ' ' + counts[d.s] + '</button>').join('');
+  const shown = people.filter(p => (filter === 'All' || deptOf(p.Department).s === filter) && (!q || (p.Name + ' ' + p.Email).toLowerCase().includes(q)));
+  $('list').innerHTML = shown.length ? shown.slice(0, 60).map(p => {
+    const d = deptOf(p.Department);
+    return '<div class="row' + (p.Email === newEmail ? ' new' : '') + '" style="--c:' + d.c + '"><div class="a">' + esc(initials(p.Name)) + '</div><div><b>' + esc(p.Name) + '</b><span>' + esc(d.s) + ' · ' + esc(p.Email) + '</span></div></div>';
+  }).join('') : '<p class="empty">' + (people.length ? 'No one matches that search.' : 'No one yet. Fill in the form to onboard the first person.') + '</p>';
+  newEmail = null;
+}
+$('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; renderRecent(); } });
+$('search').addEventListener('input', renderRecent);
 
-            listContainer.prepend(newCard);
+/* ---------- server status ---------- */
+fetch('/health').then(r => r.text()).then(t => {
+  const s = $('status'); const ok = t.trim() === 'ok';
+  s.className = 'status ' + (ok ? 'ok' : 'bad'); s.querySelector('b').textContent = ok ? 'Portal online' : 'Server not responding';
+}).catch(() => { $('status').className = 'status bad'; $('status').querySelector('b').textContent = 'Server not responding'; });
 
-            // Update Counter
-            currentCount++;
-            document.getElementById('liveCount').innerText = `${currentCount} active`;
-        }
+/* ---------- confetti in the department colour ---------- */
+function confetti(color) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = $('fx'), cx = cv.getContext('2d'); cv.width = innerWidth; cv.height = innerHeight;
+  const cols = [color, '#f59e0b', '#ec4899', '#10b981', '#38bdf8'];
+  const ps = Array.from({length: 90}, () => ({x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 14, vy: Math.random() * -12 - 3, r: Math.random() * 6 + 3, c: cols[Math.floor(Math.random() * cols.length)], a: Math.random() * 6}));
+  let f = 0;
+  (function tick() {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(p => { p.vy += .35; p.x += p.vx; p.y += p.vy; p.a += .2; cx.fillStyle = p.c; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a); cx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); cx.restore(); });
+    if (++f < 110) requestAnimationFrame(tick); else cx.clearRect(0, 0, cv.width, cv.height);
+  })();
+}
 
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-    </script>
+setDept(0); load();
+</script>
 </body>
 </html>
