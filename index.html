@@ -36,7 +36,7 @@ input[type=text],input[type=email],input[type=search],input[type=file]{width:100
 input:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--soft)}
 small{display:block;min-height:1.2em;margin-top:5px;font-size:.82rem;color:var(--muted)}
 small.err{color:#b91c1c}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:18px}
 .tile{position:relative;display:flex;gap:10px;align-items:center;padding:11px 12px;border:1.5px solid var(--line);border-radius:14px;cursor:pointer;background:#fff;font-size:.9rem;font-weight:500;line-height:1.25;transition:transform .15s,border-color .15s,background .15s}
 .tile:hover{transform:translateY(-2px);border-color:var(--c)}
 .tile input{position:absolute;opacity:0}
@@ -127,7 +127,14 @@ pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fd
             </div>
             <div class="field">
               <span class="lbl" id="deptLbl">Department</span>
-              <div class="tiles" id="tiles" role="radiogroup" aria-labelledby="deptLbl"></div>
+              <div class="tiles" id="tiles" role="radiogroup" aria-labelledby="deptLbl">
+                <label class="tile" style="--c:#1D4ED8"><input type="radio" name="dept" value="0" checked><span class="ico">☁️</span><span>DevOps &amp; Cloud Architecture</span></label>
+                <label class="tile" style="--c:#6D28D9"><input type="radio" name="dept" value="1"><span class="ico">🛠️</span><span>Engineering</span></label>
+                <label class="tile" style="--c:#BE185D"><input type="radio" name="dept" value="2"><span class="ico">🤝</span><span>Human Resources</span></label>
+                <label class="tile" style="--c:#047857"><input type="radio" name="dept" value="3"><span class="ico">💰</span><span>Finance</span></label>
+                <label class="tile" style="--c:#C2410C"><input type="radio" name="dept" value="4"><span class="ico">📣</span><span>Marketing</span></label>
+                <label class="tile" style="--c:#0E7490"><input type="radio" name="dept" value="5"><span class="ico">📡</span><span>Operations</span></label>
+              </div>
             </div>
             <button type="submit" class="go" id="submitBtn" disabled><span id="btnText">Onboard this person</span></button>
           </fieldset>
@@ -192,14 +199,11 @@ const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 
 let cur = 0, people = [], filter = 'All', newEmail = null;
 
-/* ---------- department tiles + theme ---------- */
-DEPTS.forEach((d, i) => {
-  const l = document.createElement('label');
-  l.className = 'tile'; l.style.setProperty('--c', d.c);
-  l.innerHTML = '<input type="radio" name="dept" value="' + i + '"' + (i === 0 ? ' checked' : '') + '><span class="ico">' + d.i + '</span><span>' + esc(d.n) + '</span>';
-  l.querySelector('input').addEventListener('change', () => setDept(i));
-  $('tiles').appendChild(l);
+/* ---------- department tiles event listeners ---------- */
+document.querySelectorAll('input[name="dept"]').forEach((input, i) => {
+  input.addEventListener('change', () => setDept(i));
 });
+
 function setDept(i) {
   cur = i;
   document.documentElement.style.setProperty('--accent', DEPTS[i].c);
@@ -256,7 +260,7 @@ function showDone(name, email, d, data) {
   box.innerHTML += '<button type="button" class="go" id="againBtn" style="max-width:260px">Onboard another person</button>';
   $('onboardForm').hidden = true; box.hidden = false;
   $('againBtn').onclick = reset;
-  if ($('copyBtn'))$('copyBtn').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('upnTxt').textContent);$('copyBtn').textContent = 'Copied'; };
+  if ($('copyBtn'))$('copyBtn').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('upnTxt')->textContent);$('copyBtn').textContent = 'Copied'; };
   if (ok) confetti(d.c);
 }
 function reset() {
