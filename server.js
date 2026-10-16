@@ -11,6 +11,9 @@ const sql = require('mssql');
 const crypto = require('crypto');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { DefaultAzureCredential } = require('@azure/identity');
+const multer = require('multer');
+const { parse } = require('csv-parse/sync');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const app = express();
 app.use(express.json());
@@ -39,7 +42,7 @@ function getPool() {
   return poolPromise;
 }
 
-// ---------- Audit helpers (never stop the onboarding if they fail) ----------
+// ---------- Audit helpers ----------
 async function audit(name, email, department, step, status, detail) {
   try {
     const pool = await getPool();
@@ -190,7 +193,6 @@ async function createEntraUser(name, email, department) {
   return result;
 }
 
-// ---------- Blob Storage Helper ----------
 async function createUserFolder(email) {
   const svc = new BlobServiceClient(
     `https://${process.env.STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
@@ -213,7 +215,6 @@ app.post('/api/onboard', async (req, res) => {
   const department = String(body.department || '').trim();
   if (!name || !email) return res.status(400).json({ error: 'name and email are required' });
 
-  // 1. Save entry to Azure SQL
   try {
     const pool = await getPool();
     await pool.request()
@@ -232,7 +233,6 @@ app.post('/api/onboard', async (req, res) => {
   }
   await audit(name, email, department, 'Saved', 'Success', null);
 
-  // 2. Create Entra ID account first (so credentials are ready for email & blob)
   let message = 'Saved! ' + name + ' was added to the database.';
   let entra = null;
   try {
@@ -241,8 +241,7 @@ app.post('/api/onboard', async (req, res) => {
       message += '\n\nEntra ID step skipped: ' + entra.reason + '.';
       await audit(name, email, department, 'EntraUser', 'Skipped', entra.reason);
     } else {
-      message += '\n\nEntra ID account created.\nSign-in: ' + entra.upn +
-        '\n(Temporary password has been sent via email.)';
+      message += '\n\nEntra ID account created.\nSign-in: ' + entra.upn + '\n(Temporary password sent via email.)';
       await audit(name, email, department, 'EntraUser', 'Success', entra.upn);
       await recordRole(email, entra, department);
       await audit(name, email, department, 'GroupAdded', entra.groupAdded ? 'Success' : 'Failed',
@@ -254,7 +253,6 @@ app.post('/api/onboard', async (req, res) => {
     await audit(name, email, department, 'EntraUser', 'Failed', err.message);
   }
 
-  // 3. Trigger Logic App Welcome Email
   if (LOGIC_APP_URL) {
     try {
       const mail = await fetch(LOGIC_APP_URL, {
@@ -275,7 +273,6 @@ app.post('/api/onboard', async (req, res) => {
     }
   }
 
-  // 4. Create User Folder in Blob Storage
   try {
     await createUserFolder(email);
     await audit(name, email, department, 'Blob', 'Success', email.toLowerCase() + '/');
@@ -285,6 +282,107 @@ app.post('/api/onboard', async (req, res) => {
   }
 
   res.json({ message, upn: entra && entra.upn ? entra.upn : null });
+});
+
+// ---------- Bulk CSV Onboarding Route ----------
+app.post('/api/onboard-bulk', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No CSV file uploaded' });
+    }
+
+    const records = parse(req.file.buffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true
+    });
+
+    const summary = { total: records.length, success: 0, failed: 0, details: [] };
+
+    for (const row of records) {
+      const name = String(row.Name || row.DisplayName || '').trim();
+      const email = String(row.Email || row.email || '').trim();
+      const department = String(row.Department || row.department || 'DevOps & Cloud Architecture').trim();
+
+      if (!name || !email) {
+        summary.failed++;
+        summary.details.push({ email: email || 'unknown', status: 'Failed', reason: 'Name and email are required' });
+        continue;
+      }
+
+      try {
+        const pool = await getPool();
+        try {
+          await pool.request()
+            .input('Name', sql.VarChar(100), name)
+            .input('Email', sql.VarChar(100), email)
+            .input('Department', sql.VarChar(50), department || null)
+            .query('INSERT INTO Classmates (Name, Email, Department) VALUES (@Name, @Email, @Department)');
+        } catch (dbErr) {
+          if (dbErr.number === 2627 || dbErr.number === 2601) {
+            await audit(name, email, department, 'Saved', 'Failed', 'Email already registered');
+            summary.failed++;
+            summary.details.push({ email, status: 'Failed', reason: 'Email already registered' });
+            continue;
+          }
+          throw dbErr;
+        }
+        await audit(name, email, department, 'Saved', 'Success', null);
+
+        let entra = null;
+        try {
+          entra = await createEntraUser(name, email, department);
+          if (entra.skipped) {
+            await audit(name, email, department, 'EntraUser', 'Skipped', entra.reason);
+          } else {
+            await audit(name, email, department, 'EntraUser', 'Success', entra.upn);
+            await recordRole(email, entra, department);
+            await audit(name, email, department, 'GroupAdded', entra.groupAdded ? 'Success' : 'Failed',
+              entra.groupAdded ? department : entra.groupWarning);
+          }
+        } catch (entraErr) {
+          await audit(name, email, department, 'EntraUser', 'Failed', entraErr.message);
+        }
+
+        if (LOGIC_APP_URL) {
+          try {
+            await fetch(LOGIC_APP_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name,
+                email,
+                department,
+                upn: entra && entra.upn ? entra.upn : null,
+                password: entra && entra.password ? entra.password : null
+              })
+            });
+            await audit(name, email, department, 'Email', 'Success', 'Logic App triggered');
+          } catch (emailErr) {
+            await audit(name, email, department, 'Email', 'Failed', emailErr.message);
+          }
+        }
+
+        try {
+          await createUserFolder(email);
+          await audit(name, email, department, 'Blob', 'Success', email.toLowerCase() + '/');
+        } catch (blobErr) {
+          await audit(name, email, department, 'Blob', 'Failed', blobErr.message);
+        }
+
+        summary.success++;
+        summary.details.push({ email, status: 'Success', upn: entra ? entra.upn : null });
+      } catch (rowErr) {
+        summary.failed++;
+        summary.details.push({ email, status: 'Failed', reason: rowErr.message });
+      }
+    }
+
+    res.json(summary);
+  } catch (err) {
+    console.error('Bulk onboard error:', err);
+    res.status(500).json({ error: 'Failed to process CSV file: ' + err.message });
+  }
 });
 
 app.get('/api/classmates', async (req, res) => {

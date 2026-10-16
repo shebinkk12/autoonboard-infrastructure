@@ -26,13 +26,13 @@ h1,h2,h3{font-family:'Bricolage Grotesque','DM Sans',sans-serif;letter-spacing:-
 @keyframes pulse{70%{box-shadow:0 0 0 8px #10b98100}100%{box-shadow:0 0 0 0 #10b98100}}
 .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start}
 @media(max-width:860px){.grid{grid-template-columns:1fr}}
-.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 18px 40px -26px rgba(40,30,90,.35)}
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 18px 40px -26px rgba(40,30,90,.35);margin-bottom:22px}
 .card h2{font-size:1.35rem;margin-bottom:18px}
 fieldset{border:0;padding:0;min-width:0}
 fieldset:disabled{opacity:.55}
 .field{margin-bottom:18px}
 .field label,.lbl{display:block;font-weight:700;font-size:.9rem;margin-bottom:7px}
-input[type=text],input[type=email],input[type=search]{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font:inherit;color:var(--ink);background:#fff;transition:border-color .2s,box-shadow .2s}
+input[type=text],input[type=email],input[type=search],input[type=file]{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font:inherit;color:var(--ink);background:#fff;transition:border-color .2s,box-shadow .2s}
 input:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--soft)}
 small{display:block;min-height:1.2em;margin-top:5px;font-size:.82rem;color:var(--muted)}
 small.err{color:#b91c1c}
@@ -43,11 +43,9 @@ small.err{color:#b91c1c}
 .tile .ico{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 14%,#fff);font-size:1.1rem}
 .tile:has(input:checked){border-color:var(--c);background:color-mix(in srgb,var(--c) 9%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,#fff)}
 .tile:has(input:checked) .ico{background:var(--c)}
-.tile:has(input:focus-visible){outline:2px solid var(--c);outline-offset:2px}
 .go{width:100%;margin-top:6px;padding:14px;border:0;border-radius:14px;background:var(--accent);color:#fff;font:700 1rem 'DM Sans',sans-serif;cursor:pointer;box-shadow:0 12px 22px -12px var(--accent);transition:transform .15s,background .25s,opacity .2s}
 .go:hover:not(:disabled){transform:translateY(-2px)}
 .go:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
-.go:focus-visible,.ghost:focus-visible,.chip:focus-visible{outline:3px solid var(--mid);outline-offset:2px}
 .steps{list-style:none;padding:0;margin-top:20px;display:grid;gap:10px}
 .steps li{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:.95rem}
 .steps li i{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:.7rem;font-style:normal;color:#fff;transition:all .3s}
@@ -105,41 +103,55 @@ pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fd
       <span class="mark">A</span>
       <div>
         <h1>AutoOnboard</h1>
-        <p>Add a new person and Azure sets up their account, department access and welcome email.</p>
+        <p>Add a new person or upload a CSV cohort, and Azure sets up accounts, department access and welcome emails.</p>
       </div>
     </div>
     <span class="status" id="status"><i></i><b>Checking server…</b></span>
   </header>
 
   <div class="grid">
-    <section class="card" id="formCard">
-      <form id="onboardForm" novalidate>
-        <fieldset id="fs">
-          <h2>Who is joining?</h2>
-          <div class="field">
-            <label for="empName">Full name</label>
-            <input type="text" id="empName" placeholder="e.g. Sidharth V" autocomplete="off" required>
-          </div>
-          <div class="field">
-            <label for="empEmail">Personal email</label>
-            <input type="email" id="empEmail" placeholder="e.g. sidharthv@gmail.com" autocomplete="off" required>
-            <small id="emailHint"></small>
-          </div>
-          <div class="field">
-            <span class="lbl" id="deptLbl">Department</span>
-            <div class="tiles" id="tiles" role="radiogroup" aria-labelledby="deptLbl"></div>
-          </div>
-          <button type="submit" class="go" id="submitBtn" disabled><span id="btnText">Onboard this person</span></button>
-        </fieldset>
-        <ol class="steps" id="steps" hidden>
-          <li><i></i>Saving to the database</li>
-          <li><i></i>Creating the Entra ID account</li>
-          <li><i></i>Sending the welcome email</li>
-          <li><i></i>Preparing orientation files</li>
-        </ol>
-      </form>
-      <div class="done" id="done" hidden></div>
-    </section>
+    <div>
+      <!-- Single Onboard Card -->
+      <section class="card" id="formCard">
+        <form id="onboardForm" novalidate>
+          <fieldset id="fs">
+            <h2>Who is joining?</h2>
+            <div class="field">
+              <label for="empName">Full name</label>
+              <input type="text" id="empName" placeholder="e.g. Sidharth V" autocomplete="off" required>
+            </div>
+            <div class="field">
+              <label for="empEmail">Personal email</label>
+              <input type="email" id="empEmail" placeholder="e.g. sidharthv@gmail.com" autocomplete="off" required>
+              <small id="emailHint"></small>
+            </div>
+            <div class="field">
+              <span class="lbl" id="deptLbl">Department</span>
+              <div class="tiles" id="tiles" role="radiogroup" aria-labelledby="deptLbl"></div>
+            </div>
+            <button type="submit" class="go" id="submitBtn" disabled><span id="btnText">Onboard this person</span></button>
+          </fieldset>
+          <ol class="steps" id="steps" hidden>
+            <li><i></i>Saving to the database</li>
+            <li><i></i>Creating the Entra ID account</li>
+            <li><i></i>Sending the welcome email</li>
+            <li><i></i>Preparing orientation files</li>
+          </ol>
+        </form>
+        <div class="done" id="done" hidden></div>
+      </section>
+
+      <!-- Bulk CSV Upload Card -->
+      <section class="card">
+        <h2>Bulk User Onboarding (CSV)</h2>
+        <p style="color:var(--muted);font-size:.9rem;margin-bottom:12px;">Upload a <code>.csv</code> file with columns: <code>Name, Email, Department</code></p>
+        <div class="field">
+          <input type="file" id="csvFileInput" accept=".csv">
+        </div>
+        <button type="button" class="go" onclick="processBulkCSV()">Upload &amp; Process Cohort</button>
+        <div id="bulkStatus" style="margin-top:15px;"></div>
+      </section>
+    </div>
 
     <aside>
       <div class="badge" aria-live="polite">
@@ -196,13 +208,10 @@ function setDept(i) {
 
 /* ---------- live preview + validation ---------- */
 function updatePreview() {
-  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = DEPTS[cur];
-  $('pvAv').textContent = initials(name);
-  $('pvAv').classList.add('bump'); setTimeout(() => $('pvAv').classList.remove('bump'), 160);
-  $('pvName').textContent = name || 'New teammate';
-  $('pvDept').textContent = d.n;
-  $('pvEmail').textContent = email || 'Email appears here';
-  $('pvAcc').textContent = 'Azure access: ' + d.a.replace(/^Can /, 'can ');
+  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = DEPTS[cur];$('pvAv').textContent = initials(name);
+  $('pvAv').classList.add('bump'); setTimeout(() =>$('pvAv').classList.remove('bump'), 160);
+  $('pvName').textContent = name \vert{}\vert{} 'New teammate';$('pvDept').textContent = d.n;
+  $('pvEmail').textContent = email \vert{}\vert{} 'Email appears here';$('pvAcc').textContent = 'Azure access: ' + d.a.replace(/^Can /, 'can ');
   const first = name.split(/\s+/)[0];
   $('btnText').textContent = first ? 'Onboard ' + first : 'Onboard this person';
   const hint = $('emailHint');
@@ -210,8 +219,7 @@ function updatePreview() {
   else { hint.textContent = email ? 'The welcome email will be sent here.' : ''; hint.className = ''; }
   $('submitBtn').disabled = !(name.length > 1 && emailOk(email));
 }
-$('empName').addEventListener('input', updatePreview);
-$('empEmail').addEventListener('input', updatePreview);
+$('empName').addEventListener('input', updatePreview);$('empEmail').addEventListener('input', updatePreview);
 
 /* ---------- submit with live progress ---------- */
 const stepEls = () => [...document.querySelectorAll('#steps li')];
@@ -219,7 +227,7 @@ function mark(k) { stepEls().forEach((li, j) => li.className = j < k ? 'ok' : j 
 
 $('onboardForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = DEPTS[cur];
+  const name = $('empName').value.trim(), email =$('empEmail').value.trim(), d = DEPTS[cur];
   $('fs').disabled = true; $('steps').hidden = false;
   let k = 0; mark(0);
   const timer = setInterval(() => { if (k < 3) mark(++k); }, 1000);
@@ -248,15 +256,52 @@ function showDone(name, email, d, data) {
   box.innerHTML += '<button type="button" class="go" id="againBtn" style="max-width:260px">Onboard another person</button>';
   $('onboardForm').hidden = true; box.hidden = false;
   $('againBtn').onclick = reset;
-  if ($('copyBtn')) $('copyBtn').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('upnTxt').textContent); $('copyBtn').textContent = 'Copied'; };
+  if ($('copyBtn'))$('copyBtn').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('upnTxt').textContent);$('copyBtn').textContent = 'Copied'; };
   if (ok) confetti(d.c);
 }
 function reset() {
   $('done').hidden = true; $('onboardForm').hidden = false; $('steps').hidden = true;
-  $('fs').disabled = false; $('empName').value = ''; $('empEmail').value = '';
+  $('fs').disabled = false; $('empName').value = '';$('empEmail').value = '';
   updatePreview(); $('empName').focus();
 }
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => t.hidden = true, 6000); }
+
+/* ---------- bulk CSV upload function ---------- */
+async function processBulkCSV() {
+  const fileInput = $('csvFileInput');
+  const statusDiv = $('bulkStatus');
+
+  if (!fileInput.files[0]) {
+    alert('Please select a CSV file first.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  statusDiv.innerHTML = '<p style="color:var(--accent);">Processing bulk CSV cohort... Please wait.</p>';
+
+  try {
+    const response = await fetch('/api/onboard-bulk', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      statusDiv.innerHTML = `
+        <p style="color:#10b981;font-weight:700;">✓ Bulk Onboarding Completed!</p>
+        <p style="font-size:0.9rem;margin-top:4px;">Total: ${data.total} | Success: ${data.success} | Failed: ${data.failed}</p>
+      `;
+      load(); // Refresh recent list
+    } else {
+      statusDiv.innerHTML = `<p style="color:#b91c1c;">Error: ${data.error || 'Failed to process file'}</p>`;
+    }
+  } catch (err) {
+    statusDiv.innerHTML = `<p style="color:#b91c1c;">Upload failed: ${err.message}</p>`;
+  }
+}
 
 /* ---------- recent list with search and department filters ---------- */
 async function load() {
@@ -266,24 +311,22 @@ async function load() {
 function renderRecent() {
   const q = $('search').value.trim().toLowerCase();
   const counts = {}; people.forEach(p => counts[deptOf(p.Department).s] = (counts[deptOf(p.Department).s] || 0) + 1);
-  $('count').textContent = people.length + (people.length === 1 ? ' person' : ' people');
-  $('chips').innerHTML = '<button type="button" class="chip" data-f="All" aria-pressed="' + (filter === 'All') + '">All ' + people.length + '</button>' +
+  $('count').textContent = people.length + (people.length === 1 ? ' person' : ' people');$('chips').innerHTML = '<button type="button" class="chip" data-f="All" aria-pressed="' + (filter === 'All') + '">All ' + people.length + '</button>' +
     DEPTS.filter(d => counts[d.s]).map(d => '<button type="button" class="chip" style="--c:' + d.c + '" data-f="' + esc(d.s) + '" aria-pressed="' + (filter === d.s) + '"><i></i>' + esc(d.s) + ' ' + counts[d.s] + '</button>').join('');
   const shown = people.filter(p => (filter === 'All' || deptOf(p.Department).s === filter) && (!q || (p.Name + ' ' + p.Email).toLowerCase().includes(q)));
   $('list').innerHTML = shown.length ? shown.slice(0, 60).map(p => {
     const d = deptOf(p.Department);
     return '<div class="row' + (p.Email === newEmail ? ' new' : '') + '" style="--c:' + d.c + '"><div class="a">' + esc(initials(p.Name)) + '</div><div><b>' + esc(p.Name) + '</b><span>' + esc(d.s) + ' · ' + esc(p.Email) + '</span></div></div>';
-  }).join('') : '<p class="empty">' + (people.length ? 'No one matches that search.' : 'No one yet. Fill in the form to onboard the first person.') + '</p>';
+  }).join('') : '<p class="empty">' + (people.length ? 'No one matches that search.' : 'No one yet. Fill in the form or upload a CSV to onboard people.') + '</p>';
   newEmail = null;
 }
-$('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; renderRecent(); } });
-$('search').addEventListener('input', renderRecent);
+$('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; renderRecent(); } });$('search').addEventListener('input', renderRecent);
 
 /* ---------- server status ---------- */
 fetch('/health').then(r => r.text()).then(t => {
   const s = $('status'); const ok = t.trim() === 'ok';
   s.className = 'status ' + (ok ? 'ok' : 'bad'); s.querySelector('b').textContent = ok ? 'Portal online' : 'Server not responding';
-}).catch(() => { $('status').className = 'status bad'; $('status').querySelector('b').textContent = 'Server not responding'; });
+}).catch(() => { $('status').className = 'status bad';$('status').querySelector('b').textContent = 'Server not responding'; });
 
 /* ---------- confetti in the department colour ---------- */
 function confetti(color) {
