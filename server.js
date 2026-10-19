@@ -9,6 +9,7 @@ if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
 const express = require('express');
 const sql = require('mssql');
 const crypto = require('crypto');
+const path = require('path');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { DefaultAzureCredential } = require('@azure/identity');
 const multer = require('multer');
@@ -19,7 +20,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 102
 
 const app = express();
 app.use(express.json());
-app.use(express.static(__dirname));
+// Serve ONLY the portal page. (express.static(__dirname) would also expose server.js and package.json.)
+app.get(['/', '/index.html'], (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 // Set LOGIC_APP_URL as an App Service setting, then delete the fallback below.
 const LOGIC_APP_URL = process.env.LOGIC_APP_URL ||
@@ -79,10 +81,14 @@ let GROUP_MAP = {
   'Operations': 'ad997236-39ba-4447-a974-eb65854cd2a7'
 };
 try {
-  if (process.env.GROUP_MAP) GROUP_MAP = JSON.parse(process.env.GROUP_MAP);
+  if (process.env.GROUP_MAP) GROUP_MAP = Object.assign({}, GROUP_MAP, JSON.parse(process.env.GROUP_MAP));
 } catch (e) {
   console.error('GROUP_MAP setting is not valid JSON, using built-in map');
 }
+
+const PRIMARY_DEPARTMENTS = ['DevOps & Cloud Architecture', 'Engineering', 'Human Resources', 'Finance', 'Marketing', 'Operations'];
+const OTHER_DEPARTMENTS = ['Legal', 'Quality Assurance', 'Product Management', 'Security'];
+const ALL_DEPARTMENTS = PRIMARY_DEPARTMENTS.concat(OTHER_DEPARTMENTS);
 
 // Lets a CSV say "HR" or "devops" instead of the full department name.
 const DEPT_ALIASES = {
@@ -90,15 +96,16 @@ const DEPT_ALIASES = {
   'devops and cloud architecture': 'DevOps & Cloud Architecture', 'cloud': 'DevOps & Cloud Architecture',
   'engineering': 'Engineering',
   'hr': 'Human Resources', 'human resources': 'Human Resources',
-  'finance': 'Finance', 'marketing': 'Marketing', 'operations': 'Operations', 'ops': 'Operations'
+  'finance': 'Finance', 'marketing': 'Marketing', 'operations': 'Operations', 'ops': 'Operations',
+  'legal': 'Legal', 'qa': 'Quality Assurance', 'quality assurance': 'Quality Assurance',
+  'product': 'Product Management', 'product management': 'Product Management', 'security': 'Security'
 };
 function normalizeDept(value) {
   const v = String(value || '').trim().toLowerCase();
   if (!v) return null;
   const hit = DEPT_ALIASES[v];
-  if (hit && GROUP_MAP[hit]) return hit;
-  const exact = Object.keys(GROUP_MAP).find(k => k.toLowerCase() === v);
-  return exact || null;
+  if (hit) return hit;
+  return ALL_DEPARTMENTS.find(k => k.toLowerCase() === v) || null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -143,10 +150,10 @@ async function getGraphToken() {
   return data.access_token;
 }
 
-async function graph(token, method, path, body) {
-  const res = await fetch('https://graph.microsoft.com/v1.0' + path, {
+async function graph(token, method, gpath, body, extraHeaders) {
+  const res = await fetch('https://graph.microsoft.com/v1.0' + gpath, {
     method,
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    headers: Object.assign({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, extraHeaders || {}),
     body: body ? JSON.stringify(body) : undefined
   });
   if (res.status === 204) return {};
@@ -231,6 +238,119 @@ async function createUserFolder(email) {
     .uploadData(buf, { blobHTTPHeaders: { blobContentType: 'application/pdf' } });
 }
 
+// ---------- Offboarding ----------
+async function findEntraUser(token, email) {
+  // 1) the UPN we stored when the person was onboarded
+  let upn = null;
+  try {
+    const pool = await getPool();
+    const r = await pool.request().input('Email', sql.VarChar(100), email)
+      .query('SELECT TOP 1 UserPrincipalName FROM UserRoles WHERE Email = @Email');
+    if (r.recordset.length) upn = r.recordset[0].UserPrincipalName;
+  } catch (e) { console.error('UserRoles lookup failed:', e.message); }
+  if (upn) {
+    try { return await graph(token, 'GET', '/users/' + encodeURIComponent(upn) + '?$select=id,userPrincipalName'); }
+    catch (e) { if (e.status !== 404) throw e; }
+  }
+  // 2) fall back to the personal email stored on the Entra user
+  const q = "/users?$filter=otherMails/any(c:c eq '" + email.replace(/'/g, "''") + "')&$select=id,userPrincipalName&$count=true";
+  const found = await graph(token, 'GET', q, null, { ConsistencyLevel: 'eventual' });
+  if (found.value && found.value.length > 1) throw new Error('More than one Entra user matches ' + email + '; remove them manually');
+  return found.value && found.value[0] ? found.value[0] : null;
+}
+
+async function archiveUserFiles(email) {
+  const svc = new BlobServiceClient(
+    `https://${process.env.STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    new DefaultAzureCredential()
+  );
+  const src = svc.getContainerClient('orientation-files');
+  const dst = svc.getContainerClient('archived-files');
+  await dst.createIfNotExists();
+  const prefix = email.toLowerCase() + '/';
+  const stamp = new Date().toISOString().slice(0, 10);
+  let moved = 0;
+  for await (const b of src.listBlobsFlat({ prefix })) {
+    const srcBlob = src.getBlockBlobClient(b.name);
+    const buf = await srcBlob.downloadToBuffer();
+    await dst.getBlockBlobClient(prefix + 'offboarded-' + stamp + '/' + b.name.slice(prefix.length))
+      .uploadData(buf, { blobHTTPHeaders: { blobContentType: (b.properties && b.properties.contentType) || 'application/octet-stream' } });
+    await srcBlob.delete();
+    moved++;
+  }
+  return moved;
+}
+
+// mode: 'disable' (reversible) or 'delete'. Returns { ok, httpStatus, error, name, steps[] }
+async function offboardPerson(email, mode, actor) {
+  const pool = await getPool();
+  const rec = await pool.request().input('Email', sql.VarChar(100), email)
+    .query('SELECT TOP 1 * FROM Classmates WHERE Email = @Email');
+  if (!rec.recordset.length) return { ok: false, httpStatus: 404, error: 'No onboarded person has that email' };
+  const person = rec.recordset[0];
+  if (person.Status === 'Offboarded') return { ok: false, httpStatus: 409, error: person.Name + ' is already offboarded' };
+  const name = person.Name, dept = person.Department;
+
+  const steps = [];
+  const add = async (step, status, detail) => {
+    steps.push({ step, status, detail });
+    await audit(name, email, dept, step, status, (detail || '') + (actor ? ' [by ' + actor + ']' : ''));
+  };
+
+  // 1+2. Entra: leave department groups, sign out, disable or delete
+  let entraDone = false;
+  if (!GRAPH.tenant || !GRAPH.clientId || !GRAPH.secret || !GRAPH.domain) {
+    await add('Offboard-Entra', 'Skipped', 'Graph settings are not all set');
+    entraDone = true;
+  } else {
+    try {
+      const token = await getGraphToken();
+      const user = await findEntraUser(token, email);
+      if (!user) {
+        await add('Offboard-Entra', 'Skipped', 'No Entra account found for this email');
+        entraDone = true;
+      } else {
+        let removed = 0, groupErr = null;
+        for (const gid of [...new Set(Object.values(GROUP_MAP))]) {
+          try { await graph(token, 'DELETE', '/groups/' + gid + '/members/' + user.id + '/$ref'); removed++; }
+          catch (e) { if (e.status !== 404) groupErr = e.message; } // 404 = was not a member
+        }
+        await add('Offboard-Groups', groupErr ? 'Failed' : 'Success', groupErr || ('Removed from ' + removed + ' group(s)'));
+        try { await graph(token, 'POST', '/users/' + user.id + '/revokeSignInSessions'); } catch (e) { console.error('revoke failed:', e.message); }
+        if (mode === 'delete') await graph(token, 'DELETE', '/users/' + user.id);
+        else await graph(token, 'PATCH', '/users/' + user.id, { accountEnabled: false });
+        await add('Offboard-Entra', 'Success', (mode === 'delete' ? 'Deleted ' : 'Disabled ') + user.userPrincipalName);
+        entraDone = true;
+      }
+    } catch (e) {
+      console.error('Offboard Entra failed:', e.message);
+      await add('Offboard-Entra', 'Failed', e.message);
+    }
+  }
+
+  // 3. Blob Storage: archive then remove the orientation files
+  try {
+    const n = await archiveUserFiles(email);
+    await add('Offboard-Blob', 'Success', n + ' file(s) archived to archived-files');
+  } catch (e) {
+    console.error('Offboard blob failed:', e.message);
+    await add('Offboard-Blob', 'Failed', e.message);
+  }
+
+  // 4. Only mark the person offboarded if their Entra access really is gone
+  if (entraDone) {
+    try {
+      await pool.request().input('Email', sql.VarChar(100), email)
+        .query("UPDATE Classmates SET Status = 'Offboarded', OffboardedAt = SYSUTCDATETIME() WHERE Email = @Email");
+      await add('Offboard-DB', 'Success', 'Marked as offboarded');
+    } catch (e) {
+      await add('Offboard-DB', 'Failed', e.message + ' (did you run the ALTER TABLE script?)');
+    }
+  }
+
+  return { ok: entraDone && steps.every(s => s.status !== 'Failed'), httpStatus: 200, name, mode, steps };
+}
+
 // ---------- One shared onboarding flow (single form AND bulk CSV use this) ----------
 // Returns { ok, httpStatus, error, upn, problems[] }. ok = saved to the database.
 async function onboardPerson(name, email, department) {
@@ -310,8 +430,23 @@ async function onboardPerson(name, email, department) {
   return { ok: true, upn: entra && entra.upn ? entra.upn : null, problems };
 }
 
-// ---------- API Routes ----------
+// ---------- Access control ----------
+// Layer 1: App Service Authentication (Easy Auth) blocks anyone who is not signed in.
+// Layer 2 (this code): only the people listed in the ADMIN_USERS app setting may use the API.
+// Reason: new hires get accounts in the same tenant, so "signed in" alone does not mean "admin".
+const ADMIN_USERS = (process.env.ADMIN_USERS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const signedInUser = req => String(req.headers['x-ms-client-principal-name'] || '').trim();
+const isAdmin = req => ADMIN_USERS.length === 0 || ADMIN_USERS.includes(signedInUser(req).toLowerCase());
+
 app.get('/health', (req, res) => res.send('ok'));
+app.get('/api/me', (req, res) => res.json({ user: signedInUser(req) || null, admin: isAdmin(req), enforced: ADMIN_USERS.length > 0 }));
+app.use('/api', (req, res, next) => {
+  if (isAdmin(req)) return next();
+  console.warn('Blocked non-admin API call from', signedInUser(req) || '(no identity)');
+  res.status(403).json({ error: 'Not authorised. Sign in with an administrator account.' });
+});
+
+// ---------- API Routes ----------
 
 // One person at a time
 app.post('/api/onboard', async (req, res) => {
@@ -331,6 +466,20 @@ app.post('/api/onboard', async (req, res) => {
   if (r.upn) message += '\n\nEntra ID account created.\nSign-in: ' + r.upn + '\n(Temporary password sent via email.)';
   if (r.problems.length) message += '\n\n' + r.problems.join('\n');
   res.json({ message, upn: r.upn, problems: r.problems });
+});
+
+// Offboard one person: { email, mode: 'disable' | 'delete' }
+app.post('/api/offboard', async (req, res) => {
+  const email = String((req.body || {}).email || '').trim();
+  const mode = (req.body || {}).mode === 'delete' ? 'delete' : 'disable';
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'A valid email is required' });
+  try {
+    const r = await offboardPerson(email, mode, signedInUser(req) || null);
+    res.status(r.httpStatus || 200).json(r);
+  } catch (e) {
+    console.error('Offboard error:', e.message);
+    res.status(500).json({ error: 'Offboarding failed: ' + e.message });
+  }
 });
 
 // Bulk CSV: Name, Email, Department
@@ -421,4 +570,4 @@ const PORT = process.env.PORT || 8080;
 if (require.main === module) {
   app.listen(PORT, () => console.log('Server running on port ' + PORT));
 }
-module.exports = { app, makeNickname, generateTempPassword, createEntraUser, createUserFolder, normalizeDept };
+module.exports = { app, offboardPerson, makeNickname, generateTempPassword, createEntraUser, createUserFolder, normalizeDept };

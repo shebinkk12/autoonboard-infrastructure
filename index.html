@@ -91,6 +91,21 @@ pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fd
 .row div{min-width:0}
 .empty{color:var(--muted);text-align:center;padding:18px 0;font-size:.92rem}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#7f1d1d;color:#fff;padding:12px 18px;border-radius:12px;max-width:90vw;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);z-index:20}
+.sel{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font:inherit;color:var(--ink);background:#fff}
+.sel:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--soft)}
+.row.gone{opacity:.55}
+.row .off{margin-left:auto;flex:none;border:1.5px solid #fecaca;background:#fff;color:#b91c1c;font:700 .75rem 'DM Sans',sans-serif;border-radius:9px;padding:5px 10px;cursor:pointer}
+.row .off:hover{background:#fef2f2}
+.row em{margin-left:auto;flex:none;font-style:normal;font-size:.75rem;font-weight:700;color:#6b7280}
+dialog{border:0;border-radius:20px;padding:26px;max-width:460px;width:92vw;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}
+dialog::backdrop{background:rgba(23,20,43,.45)}
+dialog h3{font-size:1.25rem;margin-bottom:12px}
+dialog label.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer;font-size:.92rem}
+dialog .btns{display:flex;gap:10px;margin-top:14px}
+dialog .btns .go{margin:0}
+.dng{background:#b91c1c!important;box-shadow:none!important}
+.res{margin-top:12px;font-size:.88rem}
+.res div{padding:5px 0;border-bottom:1px solid var(--line)}
 #fx{position:fixed;inset:0;pointer-events:none;z-index:30}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -106,7 +121,10 @@ pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fd
         <p>Add a new person or upload a CSV cohort, and Azure sets up their account, department access and welcome email.</p>
       </div>
     </div>
-    <span class="status" id="status"><i></i><b>Checking server…</b></span>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span class="status" id="me" hidden></span>
+      <span class="status" id="status"><i></i><b>Checking server…</b></span>
+    </div>
   </header>
 
   <div class="grid">
@@ -134,6 +152,11 @@ pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fd
                 <label class="tile" style="--c:#047857"><input type="radio" name="dept" value="3"><span class="ico">💰</span><span>Finance</span></label>
                 <label class="tile" style="--c:#C2410C"><input type="radio" name="dept" value="4"><span class="ico">📣</span><span>Marketing</span></label>
                 <label class="tile" style="--c:#0E7490"><input type="radio" name="dept" value="5"><span class="ico">📡</span><span>Operations</span></label>
+                <label class="tile" style="--c:#475569"><input type="radio" name="dept" value="6"><span class="ico">➕</span><span>Other…</span></label>
+              </div>
+              <div id="otherWrap" hidden style="margin-top:-6px">
+                <label class="lbl" for="otherDept">Which department?</label>
+                <select id="otherDept" class="sel"></select>
               </div>
             </div>
             <button type="submit" class="go" id="submitBtn" disabled><span id="btnText">Onboard this person</span></button>
@@ -181,6 +204,17 @@ pre{white-space:pre-wrap;text-align:left;background:#fffbeb;border:1px solid #fd
     </aside>
   </div>
 </div>
+<dialog id="offDlg">
+  <h3>Offboard <span id="offWho"></span>?</h3>
+  <label class="opt"><input type="radio" name="offmode" value="disable" checked><span><b>Disable the account</b><br><span style="color:var(--muted)">Blocks sign-in. Can be switched back on later.</span></span></label>
+  <label class="opt"><input type="radio" name="offmode" value="delete"><span><b>Delete the account</b><br><span style="color:var(--muted)">Removed from Entra ID (recoverable for 30 days in the recycle bin).</span></span></label>
+  <p style="color:var(--muted);font-size:.85rem">Either way: removed from department groups, orientation files archived, and the action is logged.</p>
+  <div class="res" id="offRes" aria-live="polite"></div>
+  <div class="btns">
+    <button type="button" class="go dng" id="offGo">Offboard</button>
+    <button type="button" class="ghost" id="offClose" style="flex:none">Close</button>
+  </div>
+</dialog>
 <div class="toast" id="toast" hidden role="alert"></div>
 
 <script>
@@ -192,10 +226,12 @@ const DEPTS = [
   {n:'Marketing',                   s:'Marketing',   c:'#C2410C', i:'📣', a:'Can view the subscription, read only'},
   {n:'Operations',                  s:'Operations',  c:'#0E7490', i:'📡', a:'Can monitor resources and manage alerts'}
 ];
+const OTHER = ['Legal', 'Quality Assurance', 'Product Management', 'Security'];
+const ALLD = DEPTS.concat(OTHER.map(o => ({n:o, s:o, c:'#475569', i:'➕', a:''})));
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const initials = n => { const p = String(n).trim().split(/\s+/).filter(Boolean); return p.length ? (p[0][0] + (p.length > 1 ? p[p.length-1][0] : '')).toUpperCase() : '?'; };
-const deptOf = name => DEPTS.find(d => d.n === name || d.s === name) || {n:name || 'Unassigned', s:name || 'Unassigned', c:'#6b7280', i:'👤', a:''};
+const deptOf = name => DEPTS.find(d => d.n === name || d.s === name) || {n:name || 'Unassigned', s:name || 'Unassigned', c:'#475569', i:'👤', a:''};
 const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 
 let cur = 0, people = [], filter = 'All', newEmail = null;
@@ -205,15 +241,22 @@ document.querySelectorAll('input[name="dept"]').forEach((input, i) => {
   input.addEventListener('change', () => setDept(i));
 });
 
+function currentDept() {
+  if (cur === 6) { const v = $('otherDept').value; return {n:v, s:v, c:'#475569', i:'➕', a:'Access is assigned by an administrator'}; }
+  return DEPTS[cur];
+}
 function setDept(i) {
   cur = i;
-  document.documentElement.style.setProperty('--accent', DEPTS[i].c);
+  $('otherWrap').hidden = (i !== 6);
+  document.documentElement.style.setProperty('--accent', currentDept().c);
   updatePreview();
 }
+$('otherDept').innerHTML = OTHER.map(o => '<option>' + o + '</option>').join('');
+$('otherDept').addEventListener('change', () => setDept(6));
 
 /* ---------- live preview + validation ---------- */
 function updatePreview() {
-  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = DEPTS[cur];$('pvAv').textContent = initials(name);
+  const name = $('empName').value.trim(), email = $('empEmail').value.trim(), d = currentDept();$('pvAv').textContent = initials(name);
   $('pvAv').classList.add('bump'); setTimeout(() =>$('pvAv').classList.remove('bump'), 160);
   $('pvName').textContent = name || 'New teammate';$('pvDept').textContent = d.n;
   $('pvEmail').textContent = email || 'Email appears here';$('pvAcc').textContent = 'Azure access: ' + d.a.replace(/^Can /, 'can ');
@@ -232,7 +275,7 @@ function mark(k) { stepEls().forEach((li, j) => li.className = j < k ? 'ok' : j 
 
 $('onboardForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const name = $('empName').value.trim(), email =$('empEmail').value.trim(), d = DEPTS[cur];
+  const name = $('empName').value.trim(), email =$('empEmail').value.trim(), d = currentDept();
   $('fs').disabled = true; $('steps').hidden = false;
   let k = 0; mark(0);
   const timer = setInterval(() => { if (k < 3) mark(++k); }, 1000);
@@ -305,7 +348,7 @@ async function processBulkCSV() {
       '<thead><tr style="text-align:left;border-bottom:2px solid var(--line)"><th>Row</th><th>Person</th><th>Result</th><th>Detail</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<style>#bulkStatus td,#bulkStatus th{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}</style>';
     $('csvFileInput').value = '';
-    if (data.success + data.partial > 0) confetti(DEPTS[cur].c);
+    if (data.success + data.partial > 0) confetti(currentDept().c);
     load();
   } catch (err) {
     box.innerHTML = '<p style="color:#b91c1c">Upload failed: ' + esc(err.message) + '</p>';
@@ -323,15 +366,56 @@ function renderRecent() {
   const q = $('search').value.trim().toLowerCase();
   const counts = {}; people.forEach(p => counts[deptOf(p.Department).s] = (counts[deptOf(p.Department).s] || 0) + 1);
   $('count').textContent = people.length + (people.length === 1 ? ' person' : ' people');$('chips').innerHTML = '<button type="button" class="chip" data-f="All" aria-pressed="' + (filter === 'All') + '">All ' + people.length + '</button>' +
-    DEPTS.filter(d => counts[d.s]).map(d => '<button type="button" class="chip" style="--c:' + d.c + '" data-f="' + esc(d.s) + '" aria-pressed="' + (filter === d.s) + '"><i></i>' + esc(d.s) + ' ' + counts[d.s] + '</button>').join('');
+    ALLD.filter(d => counts[d.s]).map(d => '<button type="button" class="chip" style="--c:' + d.c + '" data-f="' + esc(d.s) + '" aria-pressed="' + (filter === d.s) + '"><i></i>' + esc(d.s) + ' ' + counts[d.s] + '</button>').join('');
   const shown = people.filter(p => (filter === 'All' || deptOf(p.Department).s === filter) && (!q || (p.Name + ' ' + p.Email).toLowerCase().includes(q)));
   $('list').innerHTML = shown.length ? shown.slice(0, 60).map(p => {
     const d = deptOf(p.Department);
-    return '<div class="row' + (p.Email === newEmail ? ' new' : '') + '" style="--c:' + d.c + '"><div class="a">' + esc(initials(p.Name)) + '</div><div><b>' + esc(p.Name) + '</b><span>' + esc(d.s) + ' · ' + esc(p.Email) + '</span></div></div>';
+    const gone = p.Status === 'Offboarded';
+    return '<div class="row' + (p.Email === newEmail ? ' new' : '') + (gone ? ' gone' : '') + '" style="--c:' + d.c + '"><div class="a">' + esc(initials(p.Name)) + '</div><div><b>' + esc(p.Name) + '</b><span>' + esc(d.s) + ' · ' + esc(p.Email) + '</span></div>' +
+      (gone ? '<em>Offboarded</em>' : '<button type="button" class="off" data-email="' + esc(p.Email) + '" data-name="' + esc(p.Name) + '">Offboard</button>') + '</div>';
   }).join('') : '<p class="empty">' + (people.length ? 'No one matches that search.' : 'No one yet. Fill in the form or upload a CSV to onboard people.') + '</p>';
   newEmail = null;
 }
 $('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; renderRecent(); } });$('search').addEventListener('input', renderRecent);
+
+/* ---------- offboarding ---------- */
+let offEmail = null;
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('.off'); if (!b) return;
+  offEmail = b.dataset.email;
+  $('offWho').textContent = b.dataset.name;
+  $('offRes').innerHTML = ''; $('offGo').disabled = false; $('offGo').textContent = 'Offboard';
+  $('offDlg').showModal();
+});
+$('offClose').onclick = () => $('offDlg').close();
+$('offGo').onclick = async () => {
+  const mode = document.querySelector('input[name="offmode"]:checked').value;
+  $('offGo').disabled = true; $('offGo').textContent = 'Working…';
+  $('offRes').textContent = 'Removing access, please wait…';
+  try {
+    const r = await fetch('/api/offboard', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email: offEmail, mode})});
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok && !data.steps) throw new Error(data.error || 'The server returned ' + r.status + '.');
+    const labels = {'Offboard-Entra':'Entra ID account', 'Offboard-Groups':'Department groups', 'Offboard-Blob':'Orientation files', 'Offboard-DB':'Database record'};
+    const col = {Success:'#047857', Skipped:'#6b7280', Failed:'#b91c1c'};
+    $('offRes').innerHTML = (data.ok ? '<b style="color:#047857">Offboarding complete.</b>' : '<b style="color:#b91c1c">Finished with problems. Nothing was hidden, see below.</b>') +
+      data.steps.map(s => '<div><b style="color:' + col[s.status] + '">' + esc(s.status) + '</b> · ' + esc(labels[s.step] || s.step) + '<br><span style="color:var(--muted)">' + esc(s.detail || '') + '</span></div>').join('');
+    $('offGo').textContent = data.ok ? 'Done' : 'Try again'; $('offGo').disabled = !!data.ok;
+    load();
+  } catch (err) {
+    $('offRes').innerHTML = '<span style="color:#b91c1c">' + esc(err.message) + '</span>';
+    $('offGo').disabled = false; $('offGo').textContent = 'Try again';
+  }
+};
+
+/* ---------- who is signed in ---------- */
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(m => {
+  if (!m) return;
+  const el = $('me'); el.hidden = false;
+  if (m.user) el.innerHTML = esc(m.user) + ' · <a href="/.auth/logout">Sign out</a>';
+  else el.textContent = 'Not signed in';
+  if (m.enforced && !m.admin) toast('You are signed in, but this account is not on the administrator list.');
+}).catch(() => {});
 
 /* ---------- server status ---------- */
 fetch('/health').then(r => r.text()).then(t => {
